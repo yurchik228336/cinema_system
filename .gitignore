@@ -1,0 +1,21 @@
+# Исполняемые файлы
+cinema
+*.exe
+*.out
+
+# Файлы сборки
+*.o
+*.obj
+
+# Файлы IDE
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# Системные файлы
+.DS_Store
+Thumbs.db
