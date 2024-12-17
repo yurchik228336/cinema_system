@@ -1,20 +1,15 @@
+
 #include <iostream>
 #include <vector>
 #include <string>
 #include <iomanip>
 #include <limits>
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
-
+#include <regex> 
 using namespace std;
 
 const int HALLS = 3;              
 const int ROWS = 5;               
 const int SEATS_PER_ROW = 10;     
-
 
 vector<vector<vector<bool>>> occupied(HALLS, vector<vector<bool>>(ROWS, vector<bool>(SEATS_PER_ROW, false)));
 vector<vector<vector<int>>> prices(HALLS, vector<vector<int>>(ROWS, vector<int>(SEATS_PER_ROW, 0)));
@@ -22,37 +17,26 @@ vector<vector<vector<string>>> customerNames(HALLS, vector<vector<string>>(ROWS,
 vector<string> movieNames(HALLS);
 vector<string> showTimes(HALLS);
 
-void clearScreen() {
-    #ifdef _WIN32
-        system("cls");
-    #else
-        system("clear");
-    #endif
-}
 
-void printHallLayout(int hallIndex) {
-    cout << "\n" << string(40, '=') << "\n";
-    cout << "Зал " << hallIndex + 1 << " | Фильм: " << movieNames[hallIndex]
-         << " | Время: " << showTimes[hallIndex] << "\n";
-    cout << string(40, '=') << "\n\n";
-    cout << "    ";
-    for (int i = 0; i < SEATS_PER_ROW; ++i) {
-        cout << setw(3) << i + 1;
-    }
-    cout << "\n";
+int getMenuChoice() {
+    string input;
+    int choice;
 
-    for (int i = 0; i < ROWS; ++i) {
-        cout << setw(3) << i + 1 << " ";
-        for (int j = 0; j < SEATS_PER_ROW; ++j) {
-            if (occupied[hallIndex][i][j]) {
-                cout << "[X]";
-            } else {
-                cout << "[ ]";
+    while (true) {
+        cout << "Выберите действие: ";
+        cin >> input;
+
+        if (regex_match(input, regex("^[+-]?[0-9]+$"))) {
+            choice = stoi(input); 
+            if (choice >= 1 && choice <= 4) {
+                return choice;
             }
         }
-        cout << "\n";
+
+        cout << "Неверный ввод! Пожалуйста, введите целое число от 1 до 4.\n";
     }
 }
+
 
 void initializeHalls() {
     movieNames[0] = "Мстители";
@@ -67,225 +51,20 @@ void initializeHalls() {
     for (int hall = 0; hall < HALLS; ++hall) {
         for (int i = 0; i < ROWS; ++i) {
             for (int j = 0; j < SEATS_PER_ROW; ++j) {
-                if (i < 2) prices[hall][i][j] = 500;
-                else if (i < 4) prices[hall][i][j] = 300;
-                else prices[hall][i][j] = 200;
+                if (i < 2) prices[hall][i][j] = 500; 
+                else if (i < 4) prices[hall][i][j] = 300; 
+                else prices[hall][i][j] = 200; 
             }
         }
     }
 }
 
-bool autoBuyTickets(int hallIndex, int ticketCount, int preferredRow, vector<pair<int, int>>& seats) {
-    preferredRow--; 
-
-
-    for (int col = 0; col <= SEATS_PER_ROW - ticketCount; ++col) {
-        bool canPlace = true;
-        for (int k = 0; k < ticketCount; ++k) {
-            if (occupied[hallIndex][preferredRow][col + k]) {
-                canPlace = false;
-                break;
-            }
-        }
-        if (canPlace) {
-            for (int k = 0; k < ticketCount; ++k) {
-                seats.emplace_back(preferredRow, col + k);
-            }
-            return true;
-        }
-    }
-
-    for (int row = 0; row < ROWS; ++row) {
-        if (row == preferredRow) continue;
-        for (int col = 0; col <= SEATS_PER_ROW - ticketCount; ++col) {
-            bool canPlace = true;
-            for (int k = 0; k < ticketCount; ++k) {
-                if (occupied[hallIndex][row][col + k]) {
-                    canPlace = false;
-                    break;
-                }
-            }
-            if (canPlace) {
-                for (int k = 0; k < ticketCount; ++k) {
-                    seats.emplace_back(row, col + k);
-                }
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-void printSuccessMessage(int totalCost, int hallIndex) {
-    cout << "\n" << string(40, '=') << "\n";
-    cout << "\033[1;32mБИЛЕТЫ УСПЕШНО ПРОДАНЫ!\033[0m\n"; 
-    cout << "Общая стоимость: " << totalCost << " руб.\n";
-    cout << string(40, '=') << "\n";
-    cout << "\033[1;34mЧто хотите сделать дальше?\033[0m\n";
-    cout << "1. Вернуться в главное меню\n";
-    cout << "2. Показать схему зала " << hallIndex + 1 << "\n";
-    cout << "\033[0mВыберите действие: ";
-}
-
-
-void printCancelMessage() {
-    cout << "\n" << string(40, '=') << "\n";
-    cout << "\033[1;31mПокупка ОТМЕНЕНА!\033[0m\n"; 
-    cout << string(40, '=') << "\n";
-    cout << "\033[1;34mЧто хотите сделать дальше?\033[0m\n";
-    cout << "1. Вернуться в главное меню\n";
-    cout << "2. Показать схему зала\n";
-    cout << "\033[0mВыберите действие: ";
-}
-
-bool buyTickets(int hallIndex) {
-    clearScreen();
-    printHallLayout(hallIndex);
-
-    cout << "Выберите режим покупки:\n";
-    cout << "1. Покупка по одному билету\n";
-    cout << "2. Быстрая покупка нескольких билетов\n";
-    cout << "Ваш выбор: ";
-    int mode;
-    cin >> mode;
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-    if (mode == 1) {
-        while (true) {
-            int row, seat;
-            cout << "Введите номер ряда (1-" << ROWS << "): ";
-            cin >> row;
-            cout << "Введите номер места (1-" << SEATS_PER_ROW << "): ";
-            cin >> seat;
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-            if (row < 1 || row > ROWS || seat < 1 || seat > SEATS_PER_ROW) {
-                cout << "Неверный номер ряда или места! Попробуйте снова.\n";
-                continue;
-            }
-
-            row--;
-            seat--;
-
-            if (occupied[hallIndex][row][seat]) {
-                cout << "Это место уже занято! Попробуйте снова.\n";
-                continue;
-            }
-
-            string name;
-            cout << "Введите имя покупателя: ";
-            getline(cin, name);
-
-            occupied[hallIndex][row][seat] = true;
-            customerNames[hallIndex][row][seat] = name;
-
-            cout << "Билет успешно продан! Цена: " << prices[hallIndex][row][seat] << " руб.\n";
-
-            cout << "Хотите купить ещё один билет? (y/n): ";
-            char more;
-            cin >> more;
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-            if (more != 'y' && more != 'Y') break;
-        }
-        return true;
-    } else if (mode == 2) {
-        cout << "Введите количество билетов: ";
-        int ticketCount;
-        cin >> ticketCount;
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-        cout << "Введите предпочитаемый ряд (1-" << ROWS << "): ";
-        int preferredRow;
-        cin >> preferredRow;
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-        vector<pair<int, int>> seats;
-        if (!autoBuyTickets(hallIndex, ticketCount, preferredRow, seats)) {
-            cout << "Невозможно разместить все билеты рядом.\n";
-            return false;
-        }
-
-        vector<string> names(ticketCount);
-        int totalCost = 0;
-
-        for (int i = 0; i < ticketCount; ++i) {
-            cout << "Введите имя покупателя для билета " << i + 1 << ": ";
-            getline(cin, names[i]);
-        }
-
-        cout << "\nВы выбрали следующие места:\n";
-        for (int i = 0; i < ticketCount; ++i) {
-            int row = seats[i].first + 1;
-            int col = seats[i].second + 1;
-            totalCost += prices[hallIndex][seats[i].first][seats[i].second];
-            cout << "Место: Ряд " << row << ", Место " << col << " - " << names[i] << "\n";
-        }
-
-        cout << "\nИтоговая стоимость: " << totalCost << " руб.\n";
-        cout << "Подтвердите покупку (y/n): ";
-        char confirm;
-        cin >> confirm;
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-
-        if (confirm == 'y' || confirm == 'Y') {
-            for (int i = 0; i < ticketCount; ++i) {
-                int row = seats[i].first;
-                int col = seats[i].second;
-                occupied[hallIndex][row][col] = true;
-                customerNames[hallIndex][row][col] = names[i];
-            }
-
-            printSuccessMessage(totalCost, hallIndex);
-
-
-            while (true) {
-                
-                int choice;
-                cin >> choice;
-                cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                
-                if (choice == 1) {
-                    return true; 
-                } else if (choice == 2) {
-                    clearScreen();
-                    printHallLayout(hallIndex); 
-                    cout << "\nНажмите Enter для возврата в меню...\n";
-                    cin.ignore(); 
-                    break; 
-                } else {
-                    cout << "Неверный выбор. Попробуйте снова.\n";
-                }
-            }
-        } else {
-            printCancelMessage();
-
-            while (true) {
-                
-                int choice;
-                cin >> choice;
-                cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                
-                if (choice == 1) {
-                    return true; 
-                } else if (choice == 2) {
-                    clearScreen();
-                    printHallLayout(hallIndex); 
-                    cout << "\nНажмите Enter для возврата в меню...\n";
-                    cin.ignore(); 
-                    break; 
-                } else {
-                    cout << "Неверный выбор. Попробуйте снова.\n";
-                }
-            }
-        }
-
-        return true;
-    } else {
-        cout << "Неверный выбор!\n";
-        return false;
-    }
+void clearScreen() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
 }
 
 void displaySchedule() {
@@ -297,44 +76,331 @@ void displaySchedule() {
     cout << string(40, '=') << "\n";
 }
 
+void printHallLayout(int hallIndex) {
+    cout << "\n" << string(40, '=') << "\n";
+    cout << "Зал " << hallIndex + 1 << " | Фильм: " << movieNames[hallIndex]
+         << " | Время: " << showTimes[hallIndex] << "\n";
+    cout << string(40, '=') << "\n\n";
+
+    cout << "\033[1;32m[ ]\033[0m - Свободное место (500р)\n";
+    cout << "\033[1;38;5;214m[ ]\033[0m - Свободное место (300р)\n"; 
+    cout << "\033[1;34m[ ]\033[0m - Свободное место (200р)\n"; 
+    cout << "\033[1;31m[X]\033[0m - Занято\n";
+    cout << "\n";
+    cout << "   ";
+    for (int i = 0; i < SEATS_PER_ROW; ++i) {
+        cout << setw(3) << i + 1;
+    }
+    cout << "\n";
+    
+    for (int i = 0; i < ROWS; ++i) {
+        cout << setw(3) << i + 1 << " ";
+        for (int j = 0; j < SEATS_PER_ROW; ++j) {
+            if (occupied[hallIndex][i][j]) {
+                cout << "\033[1;31m[X]\033[0m";  
+            } else {
+                if (i < 2) {
+                    cout << "\033[1;32m[ ]\033[0m";  
+                } else if (i < 4) {
+                    cout << "\033[1;38;5;214m[ ]\033[0m";  
+                } else {
+                    cout << "\033[1;34m[ ]\033[0m"; 
+                }
+            }
+        }
+        cout << "\n";
+    }
+}
+
+
+
+bool autoBuyTickets(int hallIndex, int ticketCount, int preferredRow, vector<pair<int, int>>& seats) {
+    preferredRow--;  
+
+
+    int ticketsPlaced = 0;
+    for (int row = preferredRow; row < ROWS && ticketsPlaced < ticketCount; ++row) {
+        for (int col = 0; col < SEATS_PER_ROW && ticketsPlaced < ticketCount; ++col) {
+            if (!occupied[hallIndex][row][col]) {
+                seats.emplace_back(row, col);
+                ticketsPlaced++;
+            }
+        }
+    }
+
+    for (int row = 0; row < ROWS && ticketsPlaced < ticketCount; ++row) {
+        if (row == preferredRow) continue;  
+        for (int col = 0; col < SEATS_PER_ROW && ticketsPlaced < ticketCount; ++col) {
+            if (!occupied[hallIndex][row][col]) {
+                seats.emplace_back(row, col);
+                ticketsPlaced++;
+            }
+        }
+    }
+
+    return ticketsPlaced == ticketCount;
+}
+
+void printSuccessMessage(int totalCost, int hallIndex) {
+    clearScreen();
+    cout << "\n" << string(40, '=') << "\n";
+    cout << "\033[1;32mБИЛЕТ(Ы) УСПЕШНО ПРОДАН(Ы)!\033[0m\n"; 
+    cout << "Общая стоимость: " << totalCost << " руб.\n";
+    cout << string(40, '=') << "\n";
+    
+}
+
+void printCancelMessage() {
+    clearScreen();
+    cout << "\n" << string(40, '=') << "\n";
+    cout << "\033[1;31mПокупка ОТМЕНЕНА!\033[0m\n"; 
+    cout << string(40, '=') << "\n";
+
+}
+
+int countAvailableSeats(int hallIndex) {
+    int availableSeats = 0;
+    for (int i = 0; i < ROWS; ++i) {
+        for (int j = 0; j < SEATS_PER_ROW; ++j) {
+            if (!occupied[hallIndex][i][j]) {
+                ++availableSeats;
+            }
+        }
+    }
+    return availableSeats;
+}
+
+bool buyTickets(int hallIndex) {
+    clearScreen();
+    printHallLayout(hallIndex);
+
+    int totalAvailableSeats = countAvailableSeats(hallIndex);
+    if (totalAvailableSeats == 0) {
+        cout << "Извините, все места заняты в этом зале.\n";
+        cout << "Нажмите Enter для возврата в меню...";
+        cin.ignore();
+        cin.get();
+        clearScreen();
+        return true;  
+    }
+
+    cout << "Выберите режим покупки:\n";
+    cout << "1. Покупка по одному билету\n";
+    cout << "2. Быстрая покупка нескольких билетов\n";
+    cout << "\n3. Выйти в меню\n\n";
+    cout << "Ваш выбор: ";
+    int mode;
+    while (!(cin >> mode) || mode > 3 || mode <= 0) {
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Неверный ввод! Пожалуйста, введите число: ";
+    }
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    if (mode == 3) {
+        clearScreen();
+        return true;
+    }
+
+    if (mode == 1) {
+        while (true) {
+            int row, seat;
+            cout << "Введите номер ряда (1-" << ROWS << "): ";
+            cin >> row;
+            cout << "Введите номер места (1-" << SEATS_PER_ROW << "): ";
+            cin >> seat;
+
+            if (row < 1 || row > ROWS || seat < 1 || seat > SEATS_PER_ROW) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                cout << "Неверный номер ряда или места! Попробуйте снова.\n";
+                continue;
+            }
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            row--;
+            seat--;
+
+            if (occupied[hallIndex][row][seat]) {
+                cin.clear();
+                cout << "Это место уже занято! Попробуйте снова.\n";
+                continue;
+            }
+
+            string name;
+            do {
+                cout << "Введите имя покупателя: ";
+                getline(cin, name);
+
+                if (name.empty()) {
+                    cout << "Имя не может быть пустым! Попробуйте снова.\n";
+                }
+            } while (name.empty());
+
+            occupied[hallIndex][row][seat] = true;
+            customerNames[hallIndex][row][seat] = name;
+
+            clearScreen();
+            cout << "\nПодтвердите покупку:\n\n";
+            cout << "Фильм: " << movieNames[hallIndex] << "\n";
+            cout << "Зал: " << hallIndex + 1 << "\n";
+            cout << "Ваш ряд: " << row + 1 << "\n";
+            cout << "Ваше место: " << seat + 1 << "\n";
+            cout << "Ваше имя: " << name << "\n";
+            cout << "Цена билета: " << prices[hallIndex][row][seat] << " руб.\n";
+
+            cout << "\nДля подтверждения введите 'y', для отмены любой другой символ/строку ";
+            char choice;
+            cin >> choice;
+            if (choice == 'y' || choice == 'Y') {
+                printSuccessMessage(prices[hallIndex][row][seat], hallIndex);
+            } else {
+                occupied[hallIndex][row][seat] = false;
+                customerNames[hallIndex][row][seat] = "";
+                printCancelMessage();
+            }
+            break;
+        }
+    } else if (mode == 2) {
+        cout << "Доступно мест: " << totalAvailableSeats << "\n";
+
+        int ticketCount;
+        cout << "Введите количество билетов (максимум " << totalAvailableSeats << "): ";
+        while (!(cin >> ticketCount) || ticketCount <= 0 || ticketCount > totalAvailableSeats) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Неверное количество билетов! Введите число от 1 до " << totalAvailableSeats << ": ";
+        }
+
+        int preferredRow;
+        cout << "Введите предпочтительный ряд: ";
+        while (!(cin >> preferredRow) || preferredRow < 1 || preferredRow > ROWS) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Неверный номер ряда! Введите число от 1 до " << ROWS << ": ";
+        }
+
+        vector<pair<int, int>> seats;
+        if (autoBuyTickets(hallIndex, ticketCount, preferredRow, seats)) {
+            int totalCost = 0;
+            for (auto& seat : seats) {
+                totalCost += prices[hallIndex][seat.first][seat.second];
+                string name;
+                do {
+                    cout << "\nРяд: " << seat.first + 1 << ", Место: " << seat.second + 1 << "\n";
+                    cout << "Цена билета: " << prices[hallIndex][seat.first][seat.second] << " руб.\n";
+                    cout << "Введите имя покупателя: ";
+                    cin.ignore();
+                    getline(cin, name);
+
+                    if (name.empty()) {
+                        cout << "Имя не может быть пустым! Попробуйте снова.\n";
+                    }
+                } while (name.empty());
+
+                occupied[hallIndex][seat.first][seat.second] = true;
+                customerNames[hallIndex][seat.first][seat.second] = name;
+            }
+
+            cout << "\nОбщая стоимость: " << totalCost << " руб.\n";
+            cout << "Хотите подтвердить покупку? (y/n): ";
+            char choice;
+            cin >> choice;
+            if (choice == 'y' || choice == 'Y') {
+                printSuccessMessage(totalCost, hallIndex);
+            } else {
+                for (auto& seat : seats) {
+                    occupied[hallIndex][seat.first][seat.second] = false;
+                    customerNames[hallIndex][seat.first][seat.second] = "";
+                }
+                printCancelMessage();
+            }
+        } else {
+            printCancelMessage();
+        }
+    }
+    return true;
+}
+void cancelReservation() {
+    clearScreen();
+    
+    cout << "Выберите зал для отмены брони (1-" << HALLS << "): ";
+    int hallIndex;
+    while (!(cin >> hallIndex) || hallIndex < 1 || hallIndex > HALLS) {
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "Неверный номер зала! Попробуйте снова.\n";
+        cout << "Выберите зал для отмены брони (1-" << HALLS << "): ";
+    }
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');  
+    hallIndex--;
+
+ 
+
+    cout << "Введите имя покупателя для снятия брони: ";
+    string name;
+    cin.ignore();
+    getline(cin, name);
+
+    bool found = false;
+    for (int i = 0; i < ROWS; ++i) {
+        for (int j = 0; j < SEATS_PER_ROW; ++j) {
+            if (occupied[hallIndex][i][j] && customerNames[hallIndex][i][j] == name) {
+                occupied[hallIndex][i][j] = false;
+                customerNames[hallIndex][i][j] = "";
+                cout << "Бронирование на место " << i + 1 << ", " << j + 1 << " успешно отменено.\n";
+                found = true;
+            }
+        }
+    }
+
+    if (!found) {
+        cout << "Не найдено бронирования на указанное имя.\n";
+    }
+
+    cout << "Нажмите Enter для возврата в меню...";
+    cin.get();
+}
 int main() {
+    setlocale(LC_ALL, "ru");
     initializeHalls();
     while (true) {
-        clearScreen();
         displaySchedule();
         cout << "\n1. Купить билет\n";
         cout << "2. Посмотреть схему зала\n";
-        cout << "3. Выход\n";
-        cout << "Выберите действие: ";
-        int choice;
-        cin >> choice;
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        cout << "3. Отменить бронь\n";
+        cout << "4. Выход\n";
 
-        if (choice == 3) break;
+        int choice = getMenuChoice(); 
 
-        if (choice == 1) {
+        if (choice == 4) break;
+        if (choice == 3) {
+            cancelReservation();
+        } else if (choice == 1) {
             cout << "Выберите зал (1-" << HALLS << "): ";
             int hallIndex;
-            cin >> hallIndex;
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            if (hallIndex < 1 || hallIndex > HALLS) {
+            while (!(cin >> hallIndex) || hallIndex < 1 || hallIndex > HALLS) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 cout << "Неверный номер зала! Попробуйте снова.\n";
-                continue;
+                cout << "Выберите зал (1-" << HALLS << "): ";
             }
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');  
             buyTickets(hallIndex - 1);
         } else if (choice == 2) {
             cout << "Выберите зал (1-" << HALLS << "): ";
             int hallIndex;
-            cin >> hallIndex;
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            if (hallIndex < 1 || hallIndex > HALLS) {
+            while (!(cin >> hallIndex) || hallIndex < 1 || hallIndex > HALLS) {
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 cout << "Неверный номер зала! Попробуйте снова.\n";
-                continue;
+                cout << "Выберите зал (1-" << HALLS << "): ";
             }
             clearScreen();
             printHallLayout(hallIndex - 1);
             cout << "Нажмите Enter для возврата в меню...";
             cin.ignore();
+            cin.get();
+            clearScreen();
         } else {
             cout << "Неверный выбор! Попробуйте снова.\n";
         }
